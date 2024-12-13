@@ -4,6 +4,9 @@ services:
   n8n:
     image: n8nio/n8n:latest
     restart: always
+    depends_on:
+      - postgres
+      - redis
     environment:
       # Configuração do banco de dados PostgreSQL
       - DB_TYPE=postgresdb
