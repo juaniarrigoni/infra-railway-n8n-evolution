@@ -1,0 +1,98 @@
+version: "3.8"
+services:
+  # Serviço n8n
+  n8n:
+    image: n8nio/n8n:latest
+    restart: always
+    environment:
+      # Configuração do banco de dados PostgreSQL
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_DATABASE=${Postgres.POSTGRES_DB}
+      - DB_POSTGRESDB_HOST=${Postgres.PGHOST_PRIVATE}
+      - DB_POSTGRESDB_PORT=${Postgres.PGPORT_PRIVATE}
+      - DB_POSTGRESDB_USER=${Postgres.POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${Postgres.POSTGRES_PASSWORD}
+
+      # Configuração do Redis
+      - QUEUE_BULL_REDIS_HOST=${Redis.REDISHOST_PRIVATE}
+      - QUEUE_BULL_REDIS_PORT=${Redis.REDISPORT_PRIVATE}
+      - QUEUE_BULL_REDIS_USERNAME=${Redis.REDISUSER}
+      - QUEUE_BULL_REDIS_PASSWORD=${Redis.REDIS_PASSWORD}
+
+      # Configuração geral do n8n
+      - EXECUTIONS_MODE=queue
+      - EXECUTIONS_PROCESS=own
+      - EXECUTIONS_DATA_PRUNE=true
+      - EXECUTIONS_DATA_MAX_AGE=720
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${Primary.N8N_USER}
+      - N8N_BASIC_AUTH_PASSWORD=${Primary.N8N_PASSWORD}
+      - N8N_ENCRYPTION_KEY=${Primary.N8N_ENCRYPTION_KEY}
+      - WEBHOOK_URL=https://${RAILWAY_PUBLIC_DOMAIN}
+    volumes:
+      - n8n_data:/root/.n8n
+    ports:
+      - "5678:5678"
+
+  # Evolution API
+  evolution:
+    image: "atendai/evolution-api:latest"
+    restart: always
+    environment:
+      # Configuração do banco de dados PostgreSQL
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_DATABASE=${Postgres.POSTGRES_DB}
+      - DB_POSTGRESDB_HOST=${Postgres.PGHOST_PRIVATE}
+      - DB_POSTGRESDB_PORT=${Postgres.PGPORT_PRIVATE}
+      - DB_POSTGRESDB_USER=${Postgres.POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${Postgres.POSTGRES_PASSWORD}
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_URL=postgresql://${Postgres.POSTGRES_USER}:${Postgres.POSTGRES_PASSWORD}@${Postgres.PGHOST_PRIVATE}:${Postgres.PGPORT_PRIVATE}/${Postgres.POSTGRES_DB}
+
+      # Configuração do Redis
+      - CACHE_REDIS_ENABLED=true
+      - CACHE_REDIS_URI=redis://${Redis.REDISUSER}:${Redis.REDIS_PASSWORD}@${Redis.REDISHOST_PRIVATE}:${Redis.REDISPORT_PRIVATE}/6
+      - CACHE_REDIS_PREFIX_KEY=evolution_v2
+
+      # Configuração do Webhook
+      - WA_BUSINESS_TOKEN_WEBHOOK=evolution
+      - WA_BUSINESS_URL=https://graph.facebook.com
+      - WA_BUSINESS_VERSION=v20.0
+      - WA_BUSINESS_LANGUAGE=pt_BR
+      - WEBHOOK_GLOBAL_URL=https://${RAILWAY_PUBLIC_DOMAIN}
+
+      # Configuração da autenticação
+      - AUTHENTICATION_API_KEY=d91f2743-1587-4967-b8f8-04cf1cc1dadd
+      - AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES=true
+    volumes:
+      - evolution_data:/evolution/instances
+    ports:
+      - "8080:8080"
+
+  # Banco de dados PostgreSQL (Railway)
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=${Postgres.POSTGRES_USER}
+      - POSTGRES_PASSWORD=${Postgres.POSTGRES_PASSWORD}
+      - POSTGRES_DB=${Postgres.POSTGRES_DB}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Redis (Railway)
+  redis:
+    image: redis:latest
+    restart: always
+    command: redis-server --appendonly yes
+    environment:
+      - REDIS_PASSWORD=${Redis.REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+
+volumes:
+  n8n_data:
+  evolution_data:
+  postgres_data:
+  redis_data:
